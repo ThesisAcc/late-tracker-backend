@@ -1,0 +1,165 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum AttendanceImportStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum AttendanceImportIssueType {
+  UNKNOWN_EMPLOYEE
+  AMBIGUOUS_EMPLOYEE
+  INVALID_MONTH
+  INVALID_MINUTES
+  INVALID_FILE_FORMAT
+  DUPLICATE_RECORD
+  HISTORICAL_MISMATCH
+}
+
+// ─────────────────────────────────────────────
+// EMPLOYEES
+// ─────────────────────────────────────────────
+
+model Employee {
+  id           String         @id @default(uuid()) @db.Uuid
+  employeeCode String         @unique @map("employee_code")
+  firstName    String         @map("first_name")
+  middleName   String?        @map("middle_name")
+  lastName     String         @map("last_name")
+  status       EmployeeStatus @default(ACTIVE)
+
+  user              User?
+  attendanceRecords AttendanceRecord[]
+  importIssues      AttendanceImportIssue[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([lastName, firstName])
+  @@map("employees")
+}
+
+// ─────────────────────────────────────────────
+// USERS / LOGIN ACCOUNTS
+// ─────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  employeeId   String?    @unique @map("employee_id") @db.Uuid
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         UserRole   @default(EMPLOYEE)
+  status       UserStatus @default(ACTIVE)
+
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  uploadedImports AttendanceImport[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// ATTENDANCE RECORDS
+// ─────────────────────────────────────────────
+
+model AttendanceRecord {
+  id          String @id @default(uuid()) @db.Uuid
+  employeeId  String @map("employee_id") @db.Uuid
+  year        Int
+  month       Int
+  minutesLate Int    @map("minutes_late")
+  importId    String @map("import_id") @db.Uuid
+
+  employee Employee         @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  import   AttendanceImport @relation(fields: [importId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([employeeId, year, month])
+  @@index([employeeId, year])
+  @@index([importId])
+  @@map("attendance_records")
+}
+
+// ─────────────────────────────────────────────
+// EXCEL IMPORT HISTORY
+// ─────────────────────────────────────────────
+
+model AttendanceImport {
+  id               String                 @id @default(uuid()) @db.Uuid
+  year             Int
+  filename         String
+  fileHash         String?                @map("file_hash")
+  uploadedByUserId String                 @map("uploaded_by_user_id") @db.Uuid
+  status           AttendanceImportStatus @default(PENDING)
+
+  uploadedBy User @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  attendanceRecords AttendanceRecord[]
+  issues            AttendanceImportIssue[]
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([year])
+  @@index([uploadedByUserId])
+  @@index([fileHash])
+  @@map("attendance_imports")
+}
+
+// ─────────────────────────────────────────────
+// IMPORT ISSUES
+// ─────────────────────────────────────────────
+
+model AttendanceImportIssue {
+  id         String                    @id @default(uuid()) @db.Uuid
+  importId   String                    @map("import_id") @db.Uuid
+  employeeId String?                   @map("employee_id") @db.Uuid
+  rowNumber  Int?                      @map("row_number")
+  issueType  AttendanceImportIssueType @map("issue_type")
+  message    String
+
+  existingValue Int? @map("existing_value")
+  uploadedValue Int? @map("uploaded_value")
+  year          Int?
+  month         Int?
+
+  import   AttendanceImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  employee Employee?        @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([importId])
+  @@index([employeeId])
+  @@map("attendance_import_issues")
+}
