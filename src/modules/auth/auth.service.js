@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const prisma = require('../../lib/prisma');
+
+const authRepository = require('./auth.repository');
 const { jwtSecret, jwtExpiresIn } = require('../../config/env');
 const { AppError } = require('../../middleware/error.middleware');
 
@@ -10,47 +11,60 @@ async function hashPin(pin) {
   return bcrypt.hash(pin, PIN_SALT_ROUNDS);
 }
 
-async function login({ email, pin }) {
-  const user = await prisma.user.findUnique({
-    where: { email },
-    include: { employee: true },
-  });
+async function login({ employeeCode, pin }) {
+  const employee =
+    await authRepository.findEmployeeWithUserByCode(employeeCode);
 
-  // Same error whether the email doesn't exist or the PIN is wrong -
-  // don't let a client enumerate valid emails.
-  const invalidCredentials = () => new AppError(401, 'Invalid email or PIN');
+  const invalidCredentials = () =>
+    new AppError(401, 'Invalid employee ID or PIN');
 
-  if (!user) throw invalidCredentials();
-  if (user.status !== 'ACTIVE') throw new AppError(403, 'This account is disabled');
+  if (!employee || !employee.user) {
+    throw invalidCredentials();
+  }
+
+  const user = employee.user;
+
+  if (employee.status !== 'ACTIVE') {
+    throw new AppError(403, 'This employee is inactive');
+  }
+
+  if (user.status !== 'ACTIVE') {
+    throw new AppError(403, 'This account is disabled');
+  }
 
   const pinMatches = await bcrypt.compare(pin, user.passwordHash);
-  if (!pinMatches) throw invalidCredentials();
+
+  if (!pinMatches) {
+    throw invalidCredentials();
+  }
 
   const payload = {
     sub: user.id,
-    email: user.email,
     role: user.role,
-    employeeId: user.employeeId,
+    employeeId: employee.id,
+    employeeCode: employee.employeeCode,
   };
 
-  const token = jwt.sign(payload, jwtSecret, { expiresIn: jwtExpiresIn });
+  const token = jwt.sign(payload, jwtSecret, {
+    expiresIn: jwtExpiresIn,
+  });
 
   return {
     token,
     user: {
       id: user.id,
-      email: user.email,
       role: user.role,
-      employee: user.employee
-        ? {
-            id: user.employee.id,
-            employeeCode: user.employee.employeeCode,
-            firstName: user.employee.firstName,
-            lastName: user.employee.lastName,
-          }
-        : null,
+      employee: {
+        id: employee.id,
+        employeeCode: employee.employeeCode,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+      },
     },
   };
 }
 
-module.exports = { login, hashPin };
+module.exports = {
+  login,
+  hashPin,
+};

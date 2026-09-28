@@ -8,7 +8,7 @@ const swaggerSpec = require('./config/swagger');
 
 const authRoutes = require('./modules/auth/auth.routes');
 const employeesRoutes = require('./modules/employees/employees.routes');
-
+const testExcelRoutes = require('./modules/attendance/routes/test.excel.route');
 const app = express();
 
 app.use(cors({ origin: corsOrigin }));
@@ -27,6 +27,7 @@ app.get('/health', async (req, res) => {
   }
 });
 
+app.use('/api/test/', testExcelRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/employees', employeesRoutes);
 

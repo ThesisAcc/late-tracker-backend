@@ -26,7 +26,17 @@ const prisma = require('./src/lib/prisma');
 async function main() {
   const passwordHash = await bcrypt.hash('1234', 10); // pick a real 4-digit PIN
   await prisma.user.create({
-    data: { email: 'admin@yourcompany.com', passwordHash, role: 'ADMIN' },
+    data: {
+      employee: {
+        create: {
+          employeeCode: 'EMP-1000',
+          firstName: 'System',
+          lastName: 'Administrator',
+        },
+      },
+      passwordHash,
+      role: 'ADMIN',
+    },
   });
 }
 main().then(() => process.exit(0));
@@ -58,7 +68,7 @@ Both go in Render's environment variables, not just `.env` locally.
 
 - DB connection (Prisma + Neon) with a `/health` check
 - Swagger UI at `/api-docs` and the OpenAPI document at `/api-docs.json`
-- `POST /api/auth/login` — email + 4-digit PIN, rate-limited (8 attempts / 15 min)
+- `POST /api/auth/login` — employee code + 4-digit PIN, rate-limited (8 attempts / 15 min)
 - `POST /api/admin/employees` — admin-only, creates Employee + User together
 - `GET/PATCH /api/admin/employees` — admin-only listing/detail/status update
 

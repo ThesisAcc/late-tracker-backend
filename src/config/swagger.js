@@ -31,9 +31,9 @@ const swaggerSpec = {
       },
       LoginRequest: {
         type: 'object',
-        required: ['email', 'pin'],
+        required: ['employeeCode', 'pin'],
         properties: {
-          email: { type: 'string', format: 'email', example: 'employee@example.com' },
+          employeeCode: { type: 'string', pattern: '^EMP-\\d+$', example: 'EMP-1000' },
           pin: { type: 'string', pattern: '^\\d{4}$', example: '1234' },
         },
       },
@@ -49,12 +49,11 @@ const swaggerSpec = {
         type: 'object',
         properties: {
           id: { type: 'string', format: 'uuid' },
-          email: { type: 'string', format: 'email' },
           role: { type: 'string', enum: ['ADMIN', 'EMPLOYEE'] },
           status: { type: 'string', enum: ['ACTIVE', 'DISABLED'] },
           employee: { $ref: '#/components/schemas/EmployeeSummary' },
         },
-        required: ['id', 'email', 'role'],
+        required: ['id', 'role'],
       },
       EmployeeSummary: {
         type: 'object',
@@ -76,6 +75,7 @@ const swaggerSpec = {
           lastName: { type: 'string', example: 'Doe' },
           status: { type: 'string', enum: ['ACTIVE', 'INACTIVE'] },
           createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
           user: { $ref: '#/components/schemas/EmployeeUser' },
         },
         required: ['id', 'employeeCode', 'firstName', 'lastName', 'status'],
@@ -84,20 +84,18 @@ const swaggerSpec = {
         type: 'object',
         properties: {
           id: { type: 'string', format: 'uuid' },
-          email: { type: 'string', format: 'email' },
           role: { type: 'string', enum: ['ADMIN', 'EMPLOYEE'] },
           status: { type: 'string', enum: ['ACTIVE', 'DISABLED'] },
         },
       },
       CreateEmployeeRequest: {
         type: 'object',
-        required: ['employeeCode', 'firstName', 'lastName', 'email', 'pin'],
+        required: ['employeeCode', 'firstName', 'lastName'],
         properties: {
-          employeeCode: { type: 'string', minLength: 1, maxLength: 50 },
+          employeeCode: { type: 'string', pattern: '^EMP-\\d+$', example: 'EMP-1001' },
           firstName: { type: 'string', minLength: 1, maxLength: 100 },
           middleName: { type: 'string', nullable: true, maxLength: 100 },
           lastName: { type: 'string', minLength: 1, maxLength: 100 },
-          email: { type: 'string', format: 'email' },
           pin: { type: 'string', pattern: '^\\d{4}$', example: '1234' },
         },
       },
@@ -133,7 +131,7 @@ const swaggerSpec = {
     '/api/auth/login': {
       post: {
         tags: ['Authentication'],
-        summary: 'Authenticate with email and PIN',
+        summary: 'Authenticate with employee code and PIN',
         requestBody: {
           required: true,
           content: { 'application/json': { schema: { $ref: '#/components/schemas/LoginRequest' } } },
@@ -180,7 +178,7 @@ const swaggerSpec = {
           400: { description: 'Invalid request' },
           401: { description: 'Authentication required' },
           403: { description: 'Admin role required' },
-          409: { description: 'Employee code or email already exists' },
+          409: { description: 'Employee code already exists' },
         },
       },
     },

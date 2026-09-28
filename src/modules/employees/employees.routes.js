@@ -5,7 +5,7 @@ const employeesController = require('./employees.controller');
 
 const router = express.Router();
 
-// router.use(requireAuth, requireRole('ADMIN'));
+router.use(requireAuth, requireRole('ADMIN'));
 
 router.post('/', employeesController.create);
 router.get('/', employeesController.list);

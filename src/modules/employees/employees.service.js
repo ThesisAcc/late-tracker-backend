@@ -1,14 +1,17 @@
 const employeesRepository = require('./employees.repository');
 const { hashPin } = require('../auth/auth.service');
+const PINGenerator = require('../../utils/PINGenerator');
 
 async function createEmployee(input) {
-  const passwordHash = await hashPin(input.pin);
+  const pinWasGenerated = !input.pin;
+  const pin = input.pin || PINGenerator();
+
+  const passwordHash = await hashPin(pin);
   const { employee, user } = await employeesRepository.createEmployeeWithUser({
     employeeCode: input.employeeCode,
     firstName: input.firstName,
     middleName: input.middleName ?? null,
     lastName: input.lastName,
-    email: input.email,
     passwordHash,
   });
 
@@ -19,7 +22,9 @@ async function createEmployee(input) {
     middleName: employee.middleName,
     lastName: employee.lastName,
     status: employee.status,
-    user: { id: user.id, email: user.email, role: user.role, status: user.status },
+    updatedAt: employee.updatedAt,
+    user: { id: user.id, role: user.role, status: user.status },
+    ...(pinWasGenerated ? { generatedPin: pin } : {}),
   };
 }
 

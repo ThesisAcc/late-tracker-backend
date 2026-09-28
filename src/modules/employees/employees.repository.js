@@ -8,10 +8,11 @@ const publicEmployeeSelect = {
   lastName: true,
   status: true,
   createdAt: true,
-  user: { select: { id: true, email: true, role: true, status: true } },
+  updatedAt: true,
+  user: { select: { id: true, role: true, status: true } },
 };
 
-function createEmployeeWithUser({ employeeCode, firstName, middleName, lastName, email, passwordHash }) {
+function createEmployeeWithUser({ employeeCode, firstName, middleName, lastName, passwordHash }) {
   // Employee + User are created together in one transaction: an employee
   // record without a login account (or vice versa) is not a valid state here.
   return prisma.$transaction(async (tx) => {
@@ -22,7 +23,6 @@ function createEmployeeWithUser({ employeeCode, firstName, middleName, lastName,
     const user = await tx.user.create({
       data: {
         employeeId: employee.id,
-        email,
         passwordHash,
         role: 'EMPLOYEE',
       },

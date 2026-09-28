@@ -15,9 +15,9 @@ function requireAuth(req, res, next) {
     // req.user is derived only from the verified token - never from the request body.
     req.user = {
       id: payload.sub,
-      email: payload.email,
       role: payload.role,
-      employeeId: payload.employeeId ?? null,
+      employeeId: payload.employeeId,
+      employeeCode: payload.employeeCode,
     };
     next();
   } catch (err) {
