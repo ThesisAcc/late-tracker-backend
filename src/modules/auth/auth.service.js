@@ -8,9 +8,9 @@ const { AppError } = require('../../middleware/error.middleware');
 const PIN_SALT_ROUNDS = 10;
 
 // A real bcrypt hash of a value nobody can log in with. It is compared against
-// when no user is found so a missing employee code costs the same wall-clock
+// when no user is found so a missing/ambiguous name costs the same wall-clock
 // time as a wrong PIN, and the login endpoint cannot be used to enumerate
-// valid employee codes by timing.
+// valid employee names by timing.
 const DUMMY_PIN_HASH = bcrypt.hashSync('0000', PIN_SALT_ROUNDS);
 
 async function hashPin(pin) {
@@ -18,22 +18,25 @@ async function hashPin(pin) {
 }
 
 // Every failure returns the same status and message on purpose: an unknown
-// employee code, a wrong PIN, an inactive employee and a disabled account must
-// be indistinguishable, otherwise this endpoint enumerates valid EMP-#### codes.
-const invalidCredentials = () => new AppError(401, 'Invalid employee ID or PIN');
+// name, a wrong PIN, an inactive employee and a disabled account must be
+// indistinguishable, otherwise this endpoint enumerates valid employee names.
+const invalidCredentials = () => new AppError(401, 'Invalid full name or PIN');
 
-async function login({ employeeCode, pin }) {
-  const employee =
-    await authRepository.findEmployeeWithUserByCode(employeeCode);
+async function login({ fullName, pin }) {
+  const candidates =
+    await authRepository.findActiveEmployeesWithUserByName(fullName);
 
-  if (!employee || !employee.user) {
+  // Exactly one active employee must match. Zero or multiple (ambiguous)
+  // results are treated as not-found for security - both cost the same time.
+  if (!candidates || candidates.length !== 1) {
     await bcrypt.compare(pin, DUMMY_PIN_HASH);
     throw invalidCredentials();
   }
 
+  const employee = candidates[0];
   const user = employee.user;
 
-  if (employee.status !== 'ACTIVE' || user.status !== 'ACTIVE') {
+  if (!user || user.status !== 'ACTIVE') {
     await bcrypt.compare(pin, DUMMY_PIN_HASH);
     throw invalidCredentials();
   }
@@ -74,3 +77,4 @@ module.exports = {
   login,
   hashPin,
 };
+

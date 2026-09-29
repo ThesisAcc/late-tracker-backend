@@ -76,17 +76,23 @@ test('employeeIdParamSchema rejects a non-uuid id', () => {
   assert.equal(result.error.issues[0].message, 'Invalid employee id');
 });
 
-test('loginSchema trims the employee code before matching the format', () => {
-  assert.equal(loginSchema.safeParse({ employeeCode: '  EMP-1000 ', pin: '1234' }).success, true);
+test('loginSchema trims the full name before validation', () => {
+  assert.equal(loginSchema.safeParse({ fullName: '  Maria Santos ', pin: '1234' }).success, true);
+});
+
+test('loginSchema rejects a missing or empty full name', () => {
+  assert.equal(loginSchema.safeParse({ pin: '1234' }).success, false);
+  assert.equal(loginSchema.safeParse({ fullName: '', pin: '1234' }).success, false);
+  assert.equal(loginSchema.safeParse({ fullName: '   ', pin: '1234' }).success, false);
 });
 
 test('loginSchema rejects a non 4-digit PIN', () => {
-  assert.equal(loginSchema.safeParse({ employeeCode: 'EMP-1000', pin: '12345' }).success, false);
-  assert.equal(loginSchema.safeParse({ employeeCode: 'EMP-1000', pin: '12a4' }).success, false);
+  assert.equal(loginSchema.safeParse({ fullName: 'Maria Santos', pin: '12345' }).success, false);
+  assert.equal(loginSchema.safeParse({ fullName: 'Maria Santos', pin: '12a4' }).success, false);
 });
 
 test('loginSchema rejects a numeric PIN, since it must be a string', () => {
-  const result = loginSchema.safeParse({ employeeCode: 'EMP-1000', pin: 1234 });
+  const result = loginSchema.safeParse({ fullName: 'Maria Santos', pin: 1234 });
 
   assert.equal(result.success, false);
 });

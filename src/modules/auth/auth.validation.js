@@ -1,10 +1,11 @@
 const { z } = require('zod');
 
 const loginSchema = z.object({
-  employeeCode: z
+  fullName: z
     .string()
     .trim()
-    .regex(/^EMP-\d+$/, 'Employee ID must be in the format EMP-1000'),
+    .min(1, 'Full name is required')
+    .max(200, 'Full name must not exceed 200 characters'),
 
   pin: z
     .string()

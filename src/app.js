@@ -8,6 +8,7 @@ const swaggerSpec = require('./config/swagger');
 
 const authRoutes = require('./modules/auth/auth.routes');
 const employeesRoutes = require('./modules/employees/employees.routes');
+const { dashboardRoutes, adminDashboardRoutes } = require('./modules/dashboard/dashboard.routes');
 const app = express();
 
 // Render terminates TLS and forwards the real client IP in X-Forwarded-For.
@@ -33,6 +34,8 @@ app.get('/health', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/employees', employeesRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin/dashboard', adminDashboardRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
