@@ -1,6 +1,6 @@
 const employeesRepository = require('./employees.repository');
 const { hashPin } = require('../auth/auth.service');
-const PINGenerator = require('../../utils/PINGenerator');
+const PINGenerator = require('../../utils/pin-generator');
 
 async function createEmployee(input) {
   const pinWasGenerated = !input.pin;

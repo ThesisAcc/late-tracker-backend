@@ -8,8 +8,12 @@ const swaggerSpec = require('./config/swagger');
 
 const authRoutes = require('./modules/auth/auth.routes');
 const employeesRoutes = require('./modules/employees/employees.routes');
-const testExcelRoutes = require('./modules/attendance/routes/test.excel.route');
 const app = express();
+
+// Render terminates TLS and forwards the real client IP in X-Forwarded-For.
+// Trusting exactly one hop lets express-rate-limit bucket per client instead of
+// per proxy. Only safe because the app is never exposed directly to the internet.
+app.set('trust proxy', 1);
 
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: '1mb' }));
@@ -27,7 +31,6 @@ app.get('/health', async (req, res) => {
   }
 });
 
-app.use('/api/test/', testExcelRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/employees', employeesRoutes);
 

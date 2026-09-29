@@ -23,7 +23,16 @@ const swaggerSpec = {
       Error: {
         type: 'object',
         properties: {
-          error: { type: 'string', example: 'ValidationError' },
+          error: {
+            type: 'string',
+            enum: [
+              'ValidationError',
+              'ConflictError',
+              'NotFoundError',
+              'InternalError',
+              'Error',
+            ],
+          },
           message: { type: 'string', example: 'Request validation failed' },
           details: { type: 'object', additionalProperties: true },
         },
@@ -88,6 +97,14 @@ const swaggerSpec = {
           status: { type: 'string', enum: ['ACTIVE', 'DISABLED'] },
         },
       },
+      CreatedEmployee: {
+        description:
+          'Employee as returned by create. generatedPin is present only when the request omitted pin, in which case the server generated one and this is the only time it is ever returned.',
+        allOf: [{ $ref: '#/components/schemas/Employee' }],
+        properties: {
+          generatedPin: { type: 'string', pattern: '^\\d{4}$', example: '1234' },
+        },
+      },
       CreateEmployeeRequest: {
         type: 'object',
         required: ['employeeCode', 'firstName', 'lastName'],
@@ -142,7 +159,11 @@ const swaggerSpec = {
             content: { 'application/json': { schema: { $ref: '#/components/schemas/LoginResponse' } } },
           },
           400: { description: 'Invalid request', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
-          401: { description: 'Invalid credentials', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: {
+            description:
+              'Invalid credentials. Also returned for an unknown employee code, an inactive employee and a disabled account, so the response cannot be used to discover valid employee codes.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
           429: { description: 'Too many login attempts' },
         },
       },
@@ -173,7 +194,7 @@ const swaggerSpec = {
         responses: {
           201: {
             description: 'Employee created',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/Employee' } } },
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/CreatedEmployee' } } },
           },
           400: { description: 'Invalid request' },
           401: { description: 'Authentication required' },
@@ -201,6 +222,7 @@ const swaggerSpec = {
             description: 'Employee returned',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/Employee' } } },
           },
+          400: { description: 'Invalid employee id' },
           401: { description: 'Authentication required' },
           403: { description: 'Admin role required' },
           404: { description: 'Employee not found' },
