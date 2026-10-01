@@ -12,6 +12,8 @@ const swaggerSpec = {
     { name: 'Employees', description: 'Admin employee management' },
     { name: 'Dashboard', description: 'Employee personal attendance dashboard' },
     { name: 'Admin Dashboard', description: 'Admin company-wide attendance dashboard and rankings' },
+    { name: 'Imports', description: 'Admin Excel attendance import pipeline' },
+    { name: 'Reset', description: 'Admin data reset and cleanup' },
   ],
   components: {
     securitySchemes: {
@@ -272,9 +274,245 @@ const swaggerSpec = {
           },
         },
       },
+      ResetPreviewResponse: {
+        type: 'object',
+        properties: {
+          summary: {
+            type: 'object',
+            properties: {
+              nonAdminUsersCount: { type: 'integer', example: 12 },
+              nonAdminEmployeesCount: { type: 'integer', example: 12 },
+              attendanceRecordsCount: { type: 'integer', example: 144 },
+              importsCount: { type: 'integer', example: 3 },
+              importIssuesCount: { type: 'integer', example: 7 },
+            },
+          },
+          users: { type: 'array', items: { type: 'object' } },
+          employees: { type: 'array', items: { type: 'object' } },
+          attendanceRecords: { type: 'array', items: { type: 'object' } },
+          imports: { type: 'array', items: { type: 'object' } },
+          importIssues: { type: 'array', items: { type: 'object' } },
+        },
+      },
     },
   },
   paths: {
+    // ─────────────────────────────────────────────
+    // IMPORTS
+    // ─────────────────────────────────────────────
+    '/api/admin/imports/template': {
+      get: {
+        tags: ['Imports'],
+        summary: 'Download blank .xlsx import template',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Template file download (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)' },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+        },
+      },
+    },
+    '/api/admin/imports/preview': {
+      post: {
+        tags: ['Imports'],
+        summary: 'Dry-run: validate workbook and preview import without writing to the database',
+        description: 'Upload a .xlsx workbook and receive a full validation report (errors, warnings, worker list, DB conflicts) without committing anything.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file', 'year'],
+                properties: {
+                  file: { type: 'string', format: 'binary', description: '.xlsx workbook, max 5 MB' },
+                  year: { type: 'integer', minimum: 2000, maximum: 2100, example: 2026, description: 'Target calendar year' },
+                  sheetName: { type: 'string', example: 'Workers', description: 'Sheet to read (defaults to "Workers")' },
+                  createMissingEmployees: { type: 'boolean', default: true, description: 'Whether unknown employee codes are treated as new registrations or errors' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Validation preview',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    isValid:         { type: 'boolean', example: true },
+                    fileName:        { type: 'string', example: 'late-tracker-2026.xlsx' },
+                    sheetName:       { type: 'string', example: 'Workers' },
+                    year:            { type: 'integer', example: 2026 },
+                    availableSheets: { type: 'array', items: { type: 'string' } },
+                    summary: {
+                      type: 'object',
+                      properties: {
+                        totalRows:              { type: 'integer' },
+                        validWorkers:           { type: 'integer' },
+                        totalMinutesLate:       { type: 'integer' },
+                        newEmployeesCount:      { type: 'integer' },
+                        existingEmployeesCount: { type: 'integer' },
+                        conflictsCount:         { type: 'integer' },
+                        errorsCount:            { type: 'integer' },
+                        warningsCount:          { type: 'integer' },
+                      },
+                    },
+                    issues: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          rowNumber:  { type: 'integer', nullable: true },
+                          column:     { type: 'string' },
+                          issueType:  { type: 'string', enum: ['UNKNOWN_EMPLOYEE','AMBIGUOUS_EMPLOYEE','INVALID_MONTH','INVALID_MINUTES','INVALID_FILE_FORMAT','DUPLICATE_RECORD','HISTORICAL_MISMATCH'] },
+                          severity:   { type: 'string', enum: ['ERROR','WARNING'] },
+                          message:    { type: 'string' },
+                        },
+                      },
+                    },
+                    workers: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          employeeCode:   { type: 'string', example: 'EMP-1001' },
+                          firstName:      { type: 'string' },
+                          middleName:     { type: 'string', nullable: true },
+                          lastName:       { type: 'string' },
+                          isNewEmployee:  { type: 'boolean' },
+                          totalMinutes:   { type: 'integer' },
+                          monthlyMinutes: {
+                            type: 'object',
+                            additionalProperties: { type: 'integer' },
+                            example: { january: 15, february: 0, march: 45 },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: 'Missing file or invalid parameters', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+          422: { description: 'File parsed but contains blocking errors', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/api/admin/imports': {
+      get: {
+        tags: ['Imports'],
+        summary: 'List attendance import history',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'year',   in: 'query', required: false, schema: { type: 'integer', minimum: 2000, maximum: 2100 } },
+          { name: 'limit',  in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } },
+          { name: 'offset', in: 'query', required: false, schema: { type: 'integer', minimum: 0, default: 0 } },
+        ],
+        responses: {
+          200: {
+            description: 'Paginated list of imports',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    total:   { type: 'integer' },
+                    limit:   { type: 'integer' },
+                    offset:  { type: 'integer' },
+                    imports: { type: 'array', items: { type: 'object' } },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+        },
+      },
+      post: {
+        tags: ['Imports'],
+        summary: 'Execute import: commit workbook to the database',
+        description: 'Parses and validates the workbook then atomically creates missing employees, upserts attendance records, and records the import history.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file', 'year'],
+                properties: {
+                  file:                    { type: 'string', format: 'binary', description: '.xlsx workbook, max 5 MB' },
+                  year:                    { type: 'integer', minimum: 2000, maximum: 2100, example: 2026 },
+                  sheetName:               { type: 'string', example: 'Workers' },
+                  createMissingEmployees:  { type: 'boolean', default: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Import committed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    importId:    { type: 'string', format: 'uuid' },
+                    status:      { type: 'string', enum: ['SUCCESS'] },
+                    fileName:    { type: 'string' },
+                    sheetName:   { type: 'string' },
+                    year:        { type: 'integer' },
+                    importedAt:  { type: 'string', format: 'date-time' },
+                    summary: {
+                      type: 'object',
+                      properties: {
+                        employeesCreated:  { type: 'integer' },
+                        employeesExisting: { type: 'integer' },
+                        recordsUpserted:   { type: 'integer' },
+                        totalMinutesLate:  { type: 'integer' },
+                        issuesLogged:      { type: 'integer' },
+                        warningsCount:     { type: 'integer' },
+                      },
+                    },
+                    issues:  { type: 'array', items: { type: 'object' } },
+                    workers: { type: 'array', items: { type: 'object' } },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: 'Missing file or invalid parameters', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+          422: { description: 'Workbook contains blocking validation errors. Import was not committed.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/api/admin/imports/{id}': {
+      parameters: [
+        { name: 'id', in: 'path', required: true, description: 'Import UUID', schema: { type: 'string', format: 'uuid' } },
+      ],
+      get: {
+        tags: ['Imports'],
+        summary: 'Get import details and its logged issues',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Import details', content: { 'application/json': { schema: { type: 'object' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+          404: { description: 'Import not found' },
+        },
+      },
+    },
     '/health': {
       get: {
         tags: ['Health'],
@@ -506,6 +744,59 @@ const swaggerSpec = {
           401: { description: 'Authentication required' },
           403: { description: 'Admin role required' },
           404: { description: 'Employee not found' },
+        },
+      },
+    },
+    '/api/admin/reset/preview': {
+      get: {
+        tags: ['Reset'],
+        summary: 'Preview the non-admin data that will be removed during a reset',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Preview of affected users, employees, attendance records, and imports',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ResetPreviewResponse' },
+              },
+            },
+          },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+        },
+      },
+    },
+    '/api/admin/reset': {
+      delete: {
+        tags: ['Reset'],
+        summary: 'Delete non-admin users, employees, attendance records, and imports',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['confirm'],
+                properties: {
+                  confirm: { type: 'string', example: 'RESET_NON_ADMIN_DATA' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Snapshot of the rows removed by the reset operation',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ResetPreviewResponse' },
+              },
+            },
+          },
+          400: { description: 'Missing or invalid confirmation token', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
         },
       },
     },
