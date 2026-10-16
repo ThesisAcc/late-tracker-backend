@@ -11,6 +11,7 @@ const employeesRoutes = require('./modules/employees/employees.routes');
 const { dashboardRoutes, adminDashboardRoutes } = require('./modules/dashboard/dashboard.routes');
 const importsRoutes = require('./modules/imports/imports.routes');
 const resetRoutes = require('./modules/reset/reset.routes');
+const attendanceRoutes = require('./modules/attendance/attendance.routes');
 const app = express();
 
 // Render terminates TLS and forwards the real client IP in X-Forwarded-For.
@@ -40,6 +41,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 app.use('/api/admin/imports', importsRoutes);
 app.use('/api/admin/reset', resetRoutes);
+app.use('/api/admin/attendance', attendanceRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -92,15 +92,15 @@ model User {
 // ─────────────────────────────────────────────
 
 model AttendanceRecord {
-  id          String @id @default(uuid()) @db.Uuid
-  employeeId  String @map("employee_id") @db.Uuid
+  id          String  @id @default(uuid()) @db.Uuid
+  employeeId  String  @map("employee_id") @db.Uuid
   year        Int
   month       Int
-  minutesLate Int    @map("minutes_late")
-  importId    String @map("import_id") @db.Uuid
+  minutesLate Int     @map("minutes_late")
+  importId    String? @map("import_id") @db.Uuid
 
-  employee Employee         @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  import   AttendanceImport @relation(fields: [importId], references: [id], onDelete: Restrict)
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  import   AttendanceImport? @relation(fields: [importId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now()) @map("created_at")
 

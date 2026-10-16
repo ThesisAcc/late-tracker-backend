@@ -13,6 +13,7 @@ const swaggerSpec = {
     { name: 'Dashboard', description: 'Employee personal attendance dashboard' },
     { name: 'Admin Dashboard', description: 'Admin company-wide attendance dashboard and rankings' },
     { name: 'Imports', description: 'Admin Excel attendance import pipeline' },
+    { name: 'Attendance', description: 'Admin manual attendance record management' },
     { name: 'Reset', description: 'Admin data reset and cleanup' },
   ],
   components: {
@@ -300,6 +301,57 @@ const swaggerSpec = {
           attendanceRecords: { type: 'array', items: { type: 'object' } },
           imports: { type: 'array', items: { type: 'object' } },
           importIssues: { type: 'array', items: { type: 'object' } },
+        },
+      },
+      AttendanceRecord: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000' },
+          employeeId: { type: 'string', format: 'uuid' },
+          year: { type: 'integer', example: 2026 },
+          month: { type: 'integer', minimum: 1, maximum: 12, example: 10 },
+          minutesLate: { type: 'integer', minimum: 0, example: 45 },
+          importId: { type: 'string', format: 'uuid', nullable: true, description: 'Null for manually created records' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+        required: ['id', 'employeeId', 'year', 'month', 'minutesLate'],
+      },
+      CreateAttendanceRequest: {
+        type: 'object',
+        required: ['employeeId', 'year', 'month', 'minutesLate'],
+        properties: {
+          employeeId: { type: 'string', format: 'uuid', description: 'Employee UUID' },
+          year: { type: 'integer', minimum: 2020, maximum: 2100, example: 2026 },
+          month: { type: 'integer', minimum: 1, maximum: 12, example: 10 },
+          minutesLate: { type: 'integer', minimum: 0, example: 45, description: 'Minutes late for the month' },
+        },
+      },
+      UpdateAttendanceRequest: {
+        type: 'object',
+        required: ['minutesLate'],
+        properties: {
+          minutesLate: { type: 'integer', minimum: 0, example: 60 },
+        },
+      },
+      EmployeeYearAttendanceResponse: {
+        type: 'object',
+        properties: {
+          employeeId: { type: 'string', format: 'uuid' },
+          year: { type: 'integer', example: 2026 },
+          months: {
+            type: 'array',
+            description: 'All 12 months, missing months filled with 0',
+            items: {
+              type: 'object',
+              properties: {
+                month: { type: 'integer', minimum: 1, maximum: 12 },
+                minutesLate: { type: 'integer', minimum: 0 },
+                id: { type: 'string', format: 'uuid', nullable: true, description: 'Null if no record exists for this month' },
+                importId: { type: 'string', format: 'uuid', nullable: true },
+                createdAt: { type: 'string', format: 'date-time', nullable: true },
+              },
+            },
+          },
         },
       },
     },
@@ -880,6 +932,136 @@ const swaggerSpec = {
           400: { description: 'Missing or invalid confirmation token', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
           401: { description: 'Authentication required' },
           403: { description: 'Admin role required' },
+        },
+      },
+    },
+    // ─────────────────────────────────────────────
+    // ATTENDANCE
+    // ─────────────────────────────────────────────
+    '/api/admin/attendance': {
+      post: {
+        tags: ['Attendance'],
+        summary: 'Create or update attendance record manually',
+        description: 'Upserts an attendance record based on employeeId/year/month. importId is set to null for manual entries.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateAttendanceRequest' },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Attendance record created or updated',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/AttendanceRecord' },
+              },
+            },
+          },
+          400: { description: 'Invalid request', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+          404: { description: 'Employee not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/api/admin/attendance/{id}': {
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          description: 'Attendance record UUID',
+          schema: { type: 'string', format: 'uuid' },
+        },
+      ],
+      patch: {
+        tags: ['Attendance'],
+        summary: 'Update attendance record minutes',
+        description: 'Update only the minutesLate field for an existing record',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateAttendanceRequest' },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Attendance record updated',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/AttendanceRecord' },
+              },
+            },
+          },
+          400: { description: 'Invalid request', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+          404: { description: 'Attendance record not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      delete: {
+        tags: ['Attendance'],
+        summary: 'Delete attendance record',
+        description: 'Remove a single attendance record by ID',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Attendance record deleted',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/AttendanceRecord' },
+              },
+            },
+          },
+          400: { description: 'Invalid record ID', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+          404: { description: 'Attendance record not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/api/admin/attendance/{employeeId}/{year}': {
+      parameters: [
+        {
+          name: 'employeeId',
+          in: 'path',
+          required: true,
+          description: 'Employee UUID',
+          schema: { type: 'string', format: 'uuid' },
+        },
+        {
+          name: 'year',
+          in: 'path',
+          required: true,
+          description: 'Calendar year',
+          schema: { type: 'integer', minimum: 2020, maximum: 2100, example: 2026 },
+        },
+      ],
+      get: {
+        tags: ['Attendance'],
+        summary: 'Get all attendance records for employee in year',
+        description: 'Returns all 12 months with missing months filled as 0',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Employee year attendance',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/EmployeeYearAttendanceResponse' },
+              },
+            },
+          },
+          400: { description: 'Invalid parameters', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+          404: { description: 'Employee not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
         },
       },
     },
