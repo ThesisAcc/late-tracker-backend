@@ -39,6 +39,33 @@ async function findActiveEmployeesWithUserByName(fullName) {
   `;
 }
 
+function findUserById(id) {
+  return prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+      passwordHash: true,
+      employeeId: true,
+    },
+  });
+}
+
+function updatePasswordHash(id, passwordHash) {
+  return prisma.user.update({
+    where: { id },
+    data: { passwordHash },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+    },
+  });
+}
+
 module.exports = {
   findActiveEmployeesWithUserByName,
+  findUserById,
+  updatePasswordHash,
 };

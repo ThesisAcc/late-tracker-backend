@@ -11,5 +11,7 @@ router.post('/', employeesController.create);
 router.get('/', employeesController.list);
 router.get('/:id', employeesController.getById);
 router.patch('/:id', employeesController.update);
+router.delete('/:id', employeesController.deleteEmployee);
+router.post('/:id/reset-password', employeesController.resetPassword);
 
 module.exports = router;

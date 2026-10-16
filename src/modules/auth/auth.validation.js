@@ -12,4 +12,18 @@ const loginSchema = z.object({
     .regex(/^\d{4}$/, 'PIN must be exactly 4 digits'),
 });
 
-module.exports = { loginSchema };
+const changePasswordSchema = z
+  .object({
+    currentPin: z
+      .string()
+      .regex(/^\d{4}$/, 'Current PIN must be exactly 4 digits'),
+    newPin: z
+      .string()
+      .regex(/^\d{4}$/, 'New PIN must be exactly 4 digits'),
+  })
+  .refine((data) => data.currentPin !== data.newPin, {
+    message: 'New PIN must be different from current PIN',
+    path: ['newPin'],
+  });
+
+module.exports = { loginSchema, changePasswordSchema };

@@ -1,6 +1,7 @@
 const employeesRepository = require('./employees.repository');
 const { hashPin } = require('../auth/auth.service');
 const PINGenerator = require('../../utils/pin-generator');
+const { AppError } = require('../../middleware/error.middleware');
 
 async function createEmployee(input) {
   const pinWasGenerated = !input.pin;
@@ -40,4 +41,34 @@ function updateEmployee(id, data) {
   return employeesRepository.updateById(id, data);
 }
 
-module.exports = { createEmployee, listEmployees, getEmployee, updateEmployee };
+async function deleteEmployee(id, currentUserId, currentEmployeeId) {
+  const employee = await employeesRepository.findById(id);
+  if (!employee) throw new AppError(404, 'Employee not found');
+
+  if (employee.id === currentEmployeeId || employee.user?.id === currentUserId) {
+    throw new AppError(400, 'Cannot delete your own account');
+  }
+
+  return employeesRepository.deleteById(id);
+}
+
+async function resetEmployeePassword(id) {
+  const employee = await employeesRepository.findById(id);
+  if (!employee) throw new AppError(404, 'Employee not found');
+  if (!employee.user) throw new AppError(404, 'User account not found for this employee');
+
+  const defaultPin = '1234';
+  const passwordHash = await hashPin(defaultPin);
+  await employeesRepository.resetPassword(id, passwordHash);
+
+  return { message: 'Password reset to default 1234 successfully' };
+}
+
+module.exports = {
+  createEmployee,
+  listEmployees,
+  getEmployee,
+  updateEmployee,
+  deleteEmployee,
+  resetEmployeePassword,
+};

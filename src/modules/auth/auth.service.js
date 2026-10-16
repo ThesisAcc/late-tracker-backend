@@ -73,8 +73,27 @@ async function login({ fullName, pin }) {
   };
 }
 
+async function changePassword(userId, { currentPin, newPin }) {
+  const user = await authRepository.findUserById(userId);
+
+  if (!user || user.status !== 'ACTIVE') {
+    throw new AppError(404, 'User not found or account is disabled');
+  }
+
+  const pinMatches = await bcrypt.compare(currentPin, user.passwordHash);
+  if (!pinMatches) {
+    throw new AppError(400, 'Current PIN is incorrect');
+  }
+
+  const newHash = await hashPin(newPin);
+  await authRepository.updatePasswordHash(userId, newHash);
+
+  return { message: 'Password changed successfully' };
+}
+
 module.exports = {
   login,
   hashPin,
+  changePassword,
 };
 

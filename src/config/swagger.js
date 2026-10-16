@@ -50,6 +50,14 @@ const swaggerSpec = {
           pin: { type: 'string', pattern: '^\\d{4}$', example: '1234' },
         },
       },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['currentPin', 'newPin'],
+        properties: {
+          currentPin: { type: 'string', pattern: '^\\d{4}$', example: '1234' },
+          newPin: { type: 'string', pattern: '^\\d{4}$', example: '5678' },
+        },
+      },
       LoginResponse: {
         type: 'object',
         properties: {
@@ -552,6 +560,33 @@ const swaggerSpec = {
         },
       },
     },
+    '/api/auth/change-password': {
+      post: {
+        tags: ['Authentication'],
+        summary: 'Change account PIN for the authenticated user',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ChangePasswordRequest' } } },
+        },
+        responses: {
+          200: {
+            description: 'Password changed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { message: { type: 'string', example: 'Password changed successfully' } },
+                },
+              },
+            },
+          },
+          400: { description: 'Invalid PIN or incorrect current PIN', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'Authentication required' },
+          404: { description: 'User not found or disabled' },
+        },
+      },
+    },
     '/api/admin/employees': {
       parameters: [],
       get: {
@@ -626,6 +661,54 @@ const swaggerSpec = {
             content: { 'application/json': { schema: { $ref: '#/components/schemas/Employee' } } },
           },
           400: { description: 'Invalid request' },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+          404: { description: 'Employee not found' },
+        },
+      },
+      delete: {
+        tags: ['Employees'],
+        summary: 'Delete an employee',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Employee deleted',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Employee' } } },
+          },
+          400: { description: 'Cannot delete own account or invalid id' },
+          401: { description: 'Authentication required' },
+          403: { description: 'Admin role required' },
+          404: { description: 'Employee not found' },
+        },
+      },
+    },
+    '/api/admin/employees/{id}/reset-password': {
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          description: 'Employee UUID',
+          schema: { type: 'string', format: 'uuid' },
+        },
+      ],
+      post: {
+        tags: ['Employees'],
+        summary: 'Reset employee password to default 1234',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Password reset to default 1234 successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { message: { type: 'string', example: 'Password reset to default 1234 successfully' } },
+                },
+              },
+            },
+          },
+          400: { description: 'Invalid employee id' },
           401: { description: 'Authentication required' },
           403: { description: 'Admin role required' },
           404: { description: 'Employee not found' },

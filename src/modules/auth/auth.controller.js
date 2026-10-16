@@ -1,4 +1,4 @@
-const { loginSchema } = require('./auth.validation');
+const { loginSchema, changePasswordSchema } = require('./auth.validation');
 const authService = require('./auth.service');
 
 async function login(req, res, next) {
@@ -11,4 +11,14 @@ async function login(req, res, next) {
   }
 }
 
-module.exports = { login };
+async function changePassword(req, res, next) {
+  try {
+    const data = changePasswordSchema.parse(req.body);
+    const result = await authService.changePassword(req.user.id, data);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { login, changePassword };

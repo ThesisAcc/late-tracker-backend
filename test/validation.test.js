@@ -6,7 +6,7 @@ const {
   updateEmployeeSchema,
   employeeIdParamSchema,
 } = require('../src/modules/employees/employees.validation');
-const { loginSchema } = require('../src/modules/auth/auth.validation');
+const { loginSchema, changePasswordSchema } = require('../src/modules/auth/auth.validation');
 
 test('createEmployeeSchema accepts a well formed employee', () => {
   const result = createEmployeeSchema.safeParse({
@@ -95,4 +95,21 @@ test('loginSchema rejects a numeric PIN, since it must be a string', () => {
   const result = loginSchema.safeParse({ fullName: 'Maria Santos', pin: 1234 });
 
   assert.equal(result.success, false);
+});
+
+test('changePasswordSchema accepts valid current and new PIN', () => {
+  const result = changePasswordSchema.safeParse({ currentPin: '1234', newPin: '5678' });
+  assert.equal(result.success, true);
+});
+
+test('changePasswordSchema rejects invalid PIN formats', () => {
+  assert.equal(changePasswordSchema.safeParse({ currentPin: '123', newPin: '5678' }).success, false);
+  assert.equal(changePasswordSchema.safeParse({ currentPin: '1234', newPin: '56789' }).success, false);
+  assert.equal(changePasswordSchema.safeParse({ currentPin: 'abcd', newPin: '5678' }).success, false);
+});
+
+test('changePasswordSchema rejects when new PIN matches current PIN', () => {
+  const result = changePasswordSchema.safeParse({ currentPin: '1234', newPin: '1234' });
+  assert.equal(result.success, false);
+  assert.equal(result.error.issues[0].message, 'New PIN must be different from current PIN');
 });

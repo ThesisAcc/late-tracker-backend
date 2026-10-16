@@ -47,4 +47,38 @@ function updateById(id, data) {
   return prisma.employee.update({ where: { id }, data, select: publicEmployeeSelect });
 }
 
-module.exports = { createEmployeeWithUser, findAll, findById, updateById };
+function deleteById(id) {
+  return prisma.$transaction(async (tx) => {
+    await tx.attendanceImportIssue.updateMany({
+      where: { employeeId: id },
+      data: { employeeId: null },
+    });
+    await tx.attendanceRecord.deleteMany({
+      where: { employeeId: id },
+    });
+    await tx.user.deleteMany({
+      where: { employeeId: id },
+    });
+    return tx.employee.delete({
+      where: { id },
+      select: publicEmployeeSelect,
+    });
+  });
+}
+
+function resetPassword(employeeId, passwordHash) {
+  return prisma.user.update({
+    where: { employeeId },
+    data: { passwordHash },
+    select: { id: true, role: true, status: true },
+  });
+}
+
+module.exports = {
+  createEmployeeWithUser,
+  findAll,
+  findById,
+  updateById,
+  deleteById,
+  resetPassword,
+};
