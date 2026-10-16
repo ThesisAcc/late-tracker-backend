@@ -119,10 +119,11 @@ model AttendanceImport {
   year             Int
   filename         String
   fileHash         String?                @map("file_hash")
-  uploadedByUserId String                 @map("uploaded_by_user_id") @db.Uuid
+  uploadedByUserId String?                @map("uploaded_by_user_id") @db.Uuid
   status           AttendanceImportStatus @default(PENDING)
 
-  uploadedBy User @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  // SetNull: import history must survive deletion of the uploading user.
+  uploadedBy User? @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
 
   attendanceRecords AttendanceRecord[]
   issues            AttendanceImportIssue[]

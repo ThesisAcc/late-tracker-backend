@@ -563,10 +563,9 @@ function formatImportRow(row) {
     status:     row.status,
     createdAt:  row.createdAt,
     completedAt: row.completedAt,
-    uploadedBy: {
-      id: row.uploadedBy.id,
-      employee: row.uploadedBy.employee,
-    },
+    uploadedBy: row.uploadedBy
+      ? { id: row.uploadedBy.id, employee: row.uploadedBy.employee }
+      : null,
     _count: row._count,
   };
 }
@@ -579,10 +578,9 @@ function formatImportDetail(row) {
     status:     row.status,
     createdAt:  row.createdAt,
     completedAt: row.completedAt,
-    uploadedBy: {
-      id: row.uploadedBy.id,
-      employee: row.uploadedBy.employee,
-    },
+    uploadedBy: row.uploadedBy
+      ? { id: row.uploadedBy.id, employee: row.uploadedBy.employee }
+      : null,
     recordsCount: row._count.attendanceRecords,
     issues:       row.issues,
   };
